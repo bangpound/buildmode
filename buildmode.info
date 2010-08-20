@@ -1,0 +1,4 @@
+; $Id$
+name = Build mode helper
+description = Common sense themes for CCK build modes
+core = 6.x

@@ -1,0 +1,142 @@
+<?php
+// $Id$
+/**
+ * @file buildmode.module
+ * Build mode implements common sense themes and formatters for CCK build modes.
+ */
+
+/**
+ * Generate a display of the given node.
+ *
+ * @param $node
+ *   A node array or node object.
+ * @param $build_mode
+ *   Whether to display the teaser only or the full form.
+ * @param $links
+ *   Whether or not to display node links. Links are omitted for node previews.
+ *
+ * @return
+ *   An HTML representation of the themed node.
+ *
+ * @see node_view()
+ */
+function buildmode_node_view($node, $build_mode = NODE_BUILD_NORMAL, $links = TRUE) {
+  $node = (object)$node;
+
+  // Default arguments from node_view() are passed explicitly because some
+  // hook implementations may not set them as defaults.
+  $teaser = FALSE;
+  $page = FALSE;
+
+  $node->build_mode = $build_mode;
+
+  $node = node_build_content($node, $teaser, $page);
+
+  if ($links) {
+    $node->links = module_invoke_all('link', 'node', $node, $teaser);
+    drupal_alter('link', $node->links, $node);
+  }
+
+  // Set the proper node part, then unset unused $node part so that a bad
+  // theme can not open a security hole.
+  $node->teaser = check_markup($node->teaser, $node->format, FALSE);
+  $node->body = drupal_render($node->content);
+
+  // Allow modules to modify the fully-built node.
+  node_invoke_nodeapi($node, 'alter', $teaser, $page);
+
+  return theme(array('node__'. $build_mode, 'node'), $node, $teaser, $page);
+}
+
+/**
+ * Implementation of hook_theme().
+ */
+function buildmode_theme($existing, $type, $theme, $path) {
+  $modes = _buildmode();
+  $info = array();
+  foreach ($modes as $mode => $value) {
+    $info['buildmode_'. $mode] = array(
+      'arguments' => array('node' => NULL, 'teaser' => FALSE, 'page' => FALSE),
+      'template' => 'node',
+    );
+    $info['buildmode_formatter_buildmode_'. $mode] = array(
+      'arguments' => array('element'),
+      'function' => 'theme_buildmode_formatter',
+    );
+  }
+  return $info;
+}
+
+/**
+ * Implementation of hook_field_formatter_info().
+ */
+function buildmode_field_formatter_info() {
+  $modes = _buildmode();
+  $info = array();
+  foreach ($modes as $mode => $value) {
+    $info['buildmode_'. $mode] = array(
+      'label' => $value['title'] .' build mode',
+      'field types' => array('nodereference'),
+      'multiple values' => CONTENT_HANDLE_CORE,
+    );
+  }
+  return $info;
+}
+
+/**
+ * Override or insert variables into the node templates.
+ */
+function buildmode_preprocess_node(&$vars, $hook) {
+  $modes = _buildmode();
+  $node = $vars['node'];
+  // Create the build_mode variable.
+  if (in_array($node->build_mode, array_keys($modes), TRUE)) {
+    $mode = $node->build_mode;
+    $vars['build_mode'] = $mode;
+    $vars['body_rendered'] = $node->content['body']['#value'];
+
+    $vars['classes'] .= $vars['classes'] ? ' '. $mode : $mode;
+
+    $vars['template_files'][] = $mode;
+    $vars['template_files'][] = $mode .'-'. $node->type;
+  }
+}
+
+/**
+ * Proxy theme function for 'full' and 'teaser' nodereference field formatters.
+ */
+function theme_buildmode_formatter($element) {
+  static $recursion_queue = array();
+  $output = '';
+  if (!empty($element['#item']['safe']['nid'])) {
+    $nid = $element['#item']['safe']['nid'];
+    $node = $element['#node'];
+    $field = content_fields($element['#field_name'], $element['#type_name']);
+    // If no 'referencing node' is set, we are starting a new 'reference thread'
+    if (!isset($node->referencing_node)) {
+      $recursion_queue = array();
+    }
+    $recursion_queue[] = $node->nid;
+    if (in_array($nid, $recursion_queue)) {
+      // Prevent infinite recursion caused by reference cycles:
+      // if the node has already been rendered earlier in this 'thread',
+      // we fall back to 'default' (node title) formatter.
+      return theme('nodereference_formatter_default', $element);
+    }
+    if ($referenced_node = node_load($nid)) {
+      $referenced_node->build_mode = str_replace('buildmode_', '', $element['#formatter']);
+      $referenced_node->referencing_node = $node;
+      $referenced_node->referencing_field = $field;
+      $output = node_view($referenced_node);
+    }
+  }
+  return $output;
+}
+
+function _buildmode() {
+  $modes = content_build_modes();
+  foreach (array(NODE_BUILD_NORMAL, 'full', 'teaser', NODE_BUILD_PREVIEW, NODE_BUILD_SEARCH_INDEX, NODE_BUILD_SEARCH_RESULT, NODE_BUILD_RSS, NODE_BUILD_PRINT) as $mode) {
+    unset($modes[$mode]);
+  }
+  return $modes;
+}
