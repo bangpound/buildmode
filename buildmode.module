@@ -6,6 +6,41 @@
  */
 
 /**
+ * Implementation of hook_menu().
+ */
+function buildmode_menu() {
+  $items['node/%node/buildmode'] = array(
+    'title' => 'Build modes',
+    'page callback' => 'buildmode_page_view',
+    'page arguments' => array(1),
+    'access callback' => 'node_access',
+    'access arguments' => array('view', 1),
+    'type' => MENU_LOCAL_TASK,
+  );
+  foreach (_buildmode() as $mode => $value) {
+    $items['node/%node/buildmode/'. $mode] = array(
+      'title' => $value['title'],
+      'type' => MENU_LOCAL_TASK,
+      'page callback' => 'buildmode_page_view',
+      'page arguments' => array(1, 3),
+      'access callback' => 'node_access',
+      'access arguments' => array('view', 1),
+    );
+  }
+
+  return $items;
+}
+
+/**
+ * Menu callback; view a single node.
+ */
+function buildmode_page_view($node, $build_mode = NODE_BUILD_NORMAL) {
+  $modes = _buildmode();
+  drupal_set_title($modes[$build_mode]['title']);
+  return buildmode_node_view($node, $build_mode);
+}
+
+/**
  * Generate a display of the given node.
  *
  * @param $node
