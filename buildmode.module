@@ -81,7 +81,7 @@ function buildmode_node_view($node, $build_mode = NODE_BUILD_NORMAL, $links = TR
   // Allow modules to modify the fully-built node.
   node_invoke_nodeapi($node, 'alter', $teaser, $page);
 
-  return theme(array('node__'. $build_mode, 'node'), $node, $teaser, $page);
+  return theme('node', $node, $teaser, $page);
 }
 
 /**
@@ -91,10 +91,6 @@ function buildmode_theme($existing, $type, $theme, $path) {
   $modes = _buildmode();
   $info = array();
   foreach ($modes as $mode => $value) {
-    $info['buildmode_'. $mode] = array(
-      'arguments' => array('node' => NULL, 'teaser' => FALSE, 'page' => FALSE),
-      'template' => 'node',
-    );
     $info['buildmode_formatter_buildmode_'. $mode] = array(
       'arguments' => array('element'),
       'function' => 'theme_buildmode_formatter',
