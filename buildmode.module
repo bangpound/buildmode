@@ -72,10 +72,11 @@ function buildmode_node_view($node, $build_mode = NODE_BUILD_NORMAL, $links = TR
     drupal_alter('link', $node->links, $node);
   }
 
-  // Set the proper node part, then unset unused $node part so that a bad
-  // theme can not open a security hole.
-  $node->teaser = check_markup($node->teaser, $node->format, FALSE);
-  $node->body = drupal_render($node->content);
+  // Teasers don't exist for build modes, but the teaser text might be useful.
+  // TODO: Figure out how to safely offer teaser version of body.
+  $content = drupal_render($node->content);
+  $node->body = $content;
+  unset($node->teaser);
 
   // Allow modules to modify the fully-built node.
   node_invoke_nodeapi($node, 'alter', $teaser, $page);
@@ -128,7 +129,6 @@ function buildmode_preprocess_node(&$vars, $hook) {
   if (in_array($node->build_mode, array_keys($modes), TRUE)) {
     $mode = $node->build_mode;
     $vars['build_mode'] = $mode;
-    $vars['body_rendered'] = $node->content['body']['#value'];
 
     $vars['classes'] .= $vars['classes'] ? ' '. $mode : $mode;
 
