@@ -46,7 +46,7 @@ function buildmode_page_view($node, $build_mode = NODE_BUILD_NORMAL) {
  * @param $node
  *   A node array or node object.
  * @param $build_mode
- *   Whether to display the teaser only or the full form.
+ *   The build mode name.
  * @param $links
  *   Whether or not to display node links. Links are omitted for node previews.
  *
